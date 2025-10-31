@@ -12,3 +12,7 @@ mybatis是一个半自动化的持久层框架
 
 ## Bean
 Spring注册到容器里的bean是类而不是对象
+
+@Mppaer   Mybatis里面的注解，本质是告诉Mybatis和Spring，这个接口是一个Mpper，需要被Spring扫描并生成代理对象（实现类），以便进行sql操作。是一个数据库操作接口。
+
+
