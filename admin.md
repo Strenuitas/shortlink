@@ -106,4 +106,41 @@ Redisson提供的有布隆过滤器
 我们每个数据后面都有一个通用的CreaTime updatetime 以及del_flag 我们可以定义一个配置类  ，自定义实现Mybatis提供的MetaObjectHandler来实现自动填充功能，使用@Component注册到容器里面去，同时需要在持久层的实体类例如UserDO的需要自动填充的类上面写上注解@TableField(fill = FieldFill.INSERT),代表插入的时候自动填充，若是修改的则为_UPDATE,若两者都要则可以写成_INSERT_UPDATE
 # !!!😧😧😧😧😧😧😧😧😧😧😧😧😧😧😧😧😧😧😧😧😧😧😧😧😧😧😧😧😧😧😧😧
 为了保证用户名真正唯一，也就是给我们的username加上唯一索引，因为布隆过滤器底层存在redis里面，redis在进行主从复制的时候，哪怕是集群主从复制，会有很小的概率触发，主服务器挂掉，从还没有接到，从变成了主，中间可能没有同步的数据就变成了脏数据，如果数据库没有兜底策略，那就会有脏数据插入到数据库里面，
+简单来说就是 主从结点复制延迟，主挂掉，然后数据还没发给从，你如果插入一条记录先是主节点redis不存在，存入到数据库当中后再存给redis，这时候Redis把数据异步复制给从，所以这时候如果主的服务器宕机，导致这条数据没有复制到从的redis里面，所以你再重使用同一个用户名去注册会通过布隆过滤器，进入到数据库里面。
+如果不加唯一索引就会有脏数据。
+保证用户名唯一： 先是布隆过滤器判断(先把所有用户名假如到布隆过滤器里面，可以每次注册完后加入到布隆过滤器内)   然后数据库加上唯一索引
+#  ！！！ 如果有大量的注册相同用户名的请求来访问应用呢？ 也就是这个用户名不存在于布隆过滤器中当然也不存在于数据库中
+因此，根据大量相同请求，既然是相同的，我们很自然想到使用分布式锁，也就是相同的请求去获取的锁是一把锁，只有第一个才能获取到，这里既然是不存在的用户名，那么它获取到锁肯定就能注册成功，也就是别的请求获取不到锁直接给抛出异常用户名已存在所以不使用lock.lock()也就是其他的请求不用继续等直接if(!lock.tryLock()){
+  throw new ClientException(USER_NAME_EXIST);
+}，使用try lock包住， 最后finally释放锁。
+使用Redisson的分布式锁，更安全，有看门狗的机制，底层使用的nety做的网络通信会更安全
+选择使用Redisson的分布式锁而不是简单的使用Redis提供的setnx设置key的方式来实现锁，是因为后者会出现以下问题：如果业务执行时间超过了锁的过期的事件，锁被误释放，导致并发问题。而且因为这个原因锁可能被误释放则需要些额外的逻辑去保证释放的锁的是属于自己的。可重入性缺失，同一请求无法再次获取锁，而且也没有阻塞等待，而Redisson封账了这些问题，提供了自动续期，可重入锁，安全释放(每个锁都有自己的uuid来保证不误释放别人的锁)，使锁机制更可靠易用。
+# ！！！ 如果有大量的不一样的用户名来注册，恶意攻击的话
+这个是防不住的，只能就是使用sentinal来进行限流，属于同一ip的他的qps限制在200也就是每秒处理它的200条请求，使用Redis+lua(原子性，只能允许一个线程执行)来实现，每次请求一次，INCR 计数，设置TTL =1s，如果计数>200，拒绝请求。
+#  为什么使用分库分表
+当出现数据量过大或者查询性能缓慢之前可能是10ms，后续随着数据量增加，查询时间呈指数增长，数据库连接不够
+分库和分表都有两种模式：水平和垂直。
+垂直：业务方面分库，比如电商DB分为：订单DB,购物车DB，用户DB,商品DB
+水平：比如订单DB，分为订单DB_0,DB_1,DB_2,DB_3
+
+垂直：用户：可能有很多字段 姓名，性别，右键，身份证，户籍，  可以分为用户主表，用户扩展表，用户敏感信息表
+水平：用户表水平拆分 用户表1 用户表2 用户表3
+选择分库分表中间件：ShardsPhere 和 mycat ，mycat不支持jdbc与数据库的连接，它是需要通过代理来实现。
+会有逻辑sql和真实sql，逻辑sql属于我们代码层面的，我们select * from t_user wher username = "shit"   真实sql:select * from t_user_10 where username = "shit"，意思我们业务层面就不需要考虑查询的内容具体是分完表后的哪一个，我们只需要写普遍的写法就好。
+具体如何使用则是：应用层调用Mapper/JDBC    baseMpaper.insert();传入的是逻辑表t_user,Shardingsphere-JDBC的DataSource代理会拦截sql，它解析sql，分析表和列，计算路由，然后路由到实际存储的表，然后改写sql，select * from t_user_0 where username = "shit"
+ShardingSphere 会从 内部维护的 DataSource Map 中拿到目标库的连接（db1 的 JDBC 连接）。通过 标准 JDBC 调用 执行 SQL：ShardingSphere-JDBC本身不负责存储数据，它是拿到sql然后计算路由改写sql，sql语句最终通过普通JDBC驱动发送到真实数据库的。
+具体如何拦截的，正常的baseMapper.delete()会去容器里从DataSource Bean中获取连接，Connection connection = dataSource.getConnection();  但是这个dataSource实际上并不是HikariDataSource或者DruidDataSource，而是ShardingSphere的代理类，总的来说
+在 Spring 环境中，ShardingSphere 是通过替换原始 DataSource 为代理 DataSource 来拦截 SQL 的。
+  
+# 用户登录
+不用数据库实现，使用redis就可以实现    String uuid = UUID.randomUUID().toString(),获得一个uuid作为用户的token登录凭证.每次登陆可以给一个不一样的UUID ，使用hash存储在redis里面  Key login:wangba field:uuid value {具体用户信息}
+
+# 退出登录
+logout  删掉redis中的key即可
+
+
+
+
+
+
   
