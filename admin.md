@@ -61,7 +61,7 @@ localhost:8080//user/create
 @Service  
 Spring提供的注解，标记 业务层 类，让Spring注册为Bean并管理，Spring容器启动时，会自动创建它的实例并注册为bean，这样就可以在其他地方通过依赖注入DI，使用它，例如Controller
 
-baseMapper是父类ServiceImpl提供的Mapper代理对象，所以他本质是一个Mapper的实例，类型是UserMapper,本身继承了BaseMapper，本身没有特殊逻辑，只是动态代理Mapper接口，他也是ServiceImpl的成员变量。所以既可以调用BaseMapper提供的写好的CRUD方法也可以使用UserMapper自定义的方法。
+baseMapper是Service 父类ServiceImpl提供的Mapper代理对象，所以他本质是一个Mapper的实例，类型是UserMapper,本身继承了BaseMapper，本身没有特殊逻辑，只是动态代理Mapper接口，他也是ServiceImpl的成员变量。所以既可以调用BaseMapper提供的写好的CRUD方法也可以使用UserMapper自定义的方法。
 
 
 # 全局统一返回实体 Result和Results  后面 implements Serializable  标记这个类的对象可以被序列化和反序列化 序列化 对象-二进制字节流存入外部系统(redis)  反序列化反之
@@ -86,5 +86,24 @@ class Result{
   baseMapper,这个也是Mybatis-plus提供的基础Mapper接口，用与给出基础的CRUD的操作，baseMapper.selectOne(queryWrapper)执行查询.等于说前者写好sql语句，后者则是带着sql语句去数据库里面去查
 
 # 枚举类型 是写好的枚举类的对象，只不过写法例如     USER_NULL("B000200", "用户记录不存在"),
-  
+
+# 查询用户名是否存在
+实现的交互是 用户填入用户名就提示不可用，而不是填完所有数据后点注册才提示用户不可用 就不好。
+会有的问题，如果海量请求查询用户存在或不存在，如果直接请求数据库，会将数据库打满。
+
+第一版方案：去查缓存，缓存不存在，然后再去数据库，所以要有一个初始化任务  现将数据库里记录存入到缓存RedisCache里面。 这里要不要设置有效期:  设想一下，如果缓存里面的过期了，就要去访问DB，那么如果攻击者故意访问这种过期的数据，一样还是会把数据库打满。  所以只能设置永久数据
+            如果永久不过期数据 会占用内存太高。
+第二版方案：布隆过滤器，Redis底层的数据结构，我们可以存到布隆过滤器里面去，包含一个位数组和一组哈希函数.      通过哈希函数映射到位数组的多个位置，把这些位置设置为1.      查询的话  如果映射的所有位置的值都为1 判为存在，如果有0，则认为不存在。也存在误判   但我们可以容忍它的误判 因为判用户名如果不可用，那就换一个嘛
+1.布隆过滤器设置初始量，容量设置越大，冲突几率越低
+2.会设置预期的误判值。
+Redisson提供的有布隆过滤器
+
+使用布隆过滤器的两种场景：
+  · 初始使用：注册时候就向容器新增数据，就不需要任务向容器存储数据。
+  · 使用过程中引入：通过任务的形式读mysql刷到容器里面。
+# 用户注册  
+使用baseMapper.insert(BeanUtil.toBean(requestParam,UserDO.class)) 插入，会有返回值 使用 int inserted 接收 ，如果=1 认为新增成功，如果<1则失败，手动new一个ClientException(USER_SAVE_ERROR).
+我们每个数据后面都有一个通用的CreaTime updatetime 以及del_flag 我们可以定义一个配置类  ，自定义实现Mybatis提供的MetaObjectHandler来实现自动填充功能，使用@Component注册到容器里面去，同时需要在持久层的实体类例如UserDO的需要自动填充的类上面写上注解@TableField(fill = FieldFill.INSERT),代表插入的时候自动填充，若是修改的则为_UPDATE,若两者都要则可以写成_INSERT_UPDATE
+# !!!😧😧😧😧😧😧😧😧😧😧😧😧😧😧😧😧😧😧😧😧😧😧😧😧😧😧😧😧😧😧😧😧
+为了保证用户名真正唯一，也就是给我们的username加上唯一索引，因为布隆过滤器底层存在redis里面，redis在进行主从复制的时候，哪怕是集群主从复制，会有很小的概率触发，主服务器挂掉，从还没有接到，从变成了主，中间可能没有同步的数据就变成了脏数据，如果数据库没有兜底策略，那就会有脏数据插入到数据库里面，
   
