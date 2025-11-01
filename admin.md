@@ -62,3 +62,29 @@ localhost:8080//user/create
 Spring提供的注解，标记 业务层 类，让Spring注册为Bean并管理，Spring容器启动时，会自动创建它的实例并注册为bean，这样就可以在其他地方通过依赖注入DI，使用它，例如Controller
 
 baseMapper是父类ServiceImpl提供的Mapper代理对象，所以他本质是一个Mapper的实例，类型是UserMapper,本身继承了BaseMapper，本身没有特殊逻辑，只是动态代理Mapper接口，他也是ServiceImpl的成员变量。所以既可以调用BaseMapper提供的写好的CRUD方法也可以使用UserMapper自定义的方法。
+
+
+# 全局统一返回实体 Result和Results  后面 implements Serializable  标记这个类的对象可以被序列化和反序列化 序列化 对象-二进制字节流存入外部系统(redis)  反序列化反之
+class Result{
+  private static final long serialVersionUID = 5679018624309023727L;    维护一个版本号，提示如果微服务下另一个存储了相同类的服务(应用程序)要从Redis或外部系统中取数据，要进行反序列化的时候，如果 有这个版本号，写死的就会兼容，即如果有小的改动 比如加一个字段，照样能反序列化成功。
+}
+# 这里还有一个Results类，设计的目的是为了使全局返回实体Result使用set链式创建对象，从而能够创建带不同参数的Result返回给用户。
+
+# Controller  如果是请求的URL上面加上要传的参数   响应的方法的参数 前要加注解 @PathVariable  且在方法上面的GetMapping("url/{username}")加上占位符 ；      如果不想更改url 只是传递参数，改为@RequestParam   就可以在请求附带的参数下面的Query后面设置 username = wangba了
+
+# 全局统一异常码设计    
+# 全局异常设计    只有服务端和远程调用的时候的异常我们才需要报警，需要后端人员尽快处理，如果是客户端异常则不需要，那是因为客户的问题，并不是我们的应用的问题  所以将 客户端异常，服务端异常，远程调用异常抽象出来一个抽象异常接口
+# 全局异常拦截器  @RestControllerAdvice    GlobalExceptionHandler      有异常 先是 提示对应的异常，然后到Results.failure里面去构造返回的实体带上异常信息
+
+##  脱敏处理 普通想法即在请求对应方法上面加一层注解然后经过AOP扫描到这个注解，然后经过反射递归的一层层直到去获取到RespDTO，获取到返回实体的某个加了一层注解(标记是比如手机号类型)的字段，然后对这个字段进行脱敏展示，这样太麻烦
+    不如直接使用Jackson默认序列化的方式，就是我们方法返回的是对象，到前端却是Jason字符串，是因为SpringBoot在我们的web请求，默认的会把返回的对象进行序列化的方式，把它序列化成字符串
+    即创建一个字段的序列化类继承JSonSerializer<String>，进行对应的脱敏，可以利用hutool工具包的DesensitizedUtil.mobilePhone(phone)对手机号进行脱敏，然后在对应的返回对象即RespDTO上相应的字段上加上注解 @JsonSerialize(using = PhoneDesensitizationSerializer.class)，即可让JackSon进行序列化的时候，能对这个
+    字段进行泛解析，去实现我们的自定义的一个序列化。
+
+
+# Wrappers是Mybatis-plus提供的查询条件封装器，用于构造查询条件，先使用Wrappers.lambdaQuery().eq(UserDO::username,username)后面是请求传入的，前者则是UserDO的username，构建一个查询条件queryWrapper，查询UserDO中字段username=传入的username值的记录，然后再使用
+  baseMapper,这个也是Mybatis-plus提供的基础Mapper接口，用与给出基础的CRUD的操作，baseMapper.selectOne(queryWrapper)执行查询.等于说前者写好sql语句，后者则是带着sql语句去数据库里面去查
+
+# 枚举类型 是写好的枚举类的对象，只不过写法例如     USER_NULL("B000200", "用户记录不存在"),
+  
+  
