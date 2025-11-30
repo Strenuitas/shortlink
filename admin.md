@@ -27,22 +27,22 @@ Apifox：
   
 # @RestController = @RequestMapping + @RequestBody 
 
-# 注解：给代码贴上标签，使得编译器或者框架根据代码上的标签标识来执行代码    语言层面上：是一个元数据  
+## 注解：给代码贴上标签，使得编译器或者框架根据代码上的标签标识来执行代码    语言层面上：是一个元数据  
 
 
 # 访问主机+ 端口号 = 定位应用程序
 通过URL：localhost  主机ip + 端口号 8080 ：  正在监听8080端口的应用程序，  /user/create  找到Spring MVC中映射到这个路径的方法 
 localhost:8080//user/create
 
-# Spring MVC里面的注解 @RequestMpaping  映射Web请求到控制器方法
+## Spring MVC里面的注解 @RequestMpaping  映射Web请求到控制器方法
 
 
 # 用户名下功能
 检查用户是否存在···注册用户···修改用户···根据用户名查询用户···用户登录···检查用户是否登录···用户退出登录···注销用户(软删除在数据库中的UserInfo)
 
-# 数据库里面存的真实的用户信息： 真实姓名 手机号 邮箱 需要进行加密处理。国家要求
+## 数据库里面存的真实的用户信息： 真实姓名 手机号 邮箱 需要进行加密处理。国家要求
 
-# 业务层使用接口层再加实现类的原因：
+## 业务层使用接口层再加实现类的原因：
  1：面向接口编程
      接口：规范：定义做什么
      实现：具体怎么做
@@ -54,7 +54,7 @@ localhost:8080//user/create
      这样做符合单一职责原则(SRP)和依赖倒置原则(DIP)
   UserService extends Iservice<UserDO> 是Mybatis-plus的设计思想,后者写好了了CRUD的接口，且是对UserDO进行操作，也就不必要在写一个CRUD，
   UserServiceImpl extends ServiceImpl<UserMapper,UserDO> 则是 后者实现了Iservice的CRUD的接口，且指定Service使用哪个Mapper操作
-# Controler层里面注入Service 我们使用构造器方式注入
+## Controler层里面注入Service 我们使用构造器方式注入
 @RequiredArgsConstructor    lombok提供的注解，简化构造器注入，自动为类中的final字段生成一个带参构造器，final修饰一旦注入不能被修改，多线程下更安全，一眼看着就是必须的不可缺少。
 @Data 注解自动生成 get set toString 以及 equals 和hashCode方法，如没有定义构造函数也会生成一个空参构造
 
@@ -64,7 +64,7 @@ Spring提供的注解，标记 业务层 类，让Spring注册为Bean并管理�
 baseMapper是Service 父类ServiceImpl提供的Mapper代理对象，所以他本质是一个Mapper的实例，类型是UserMapper,本身继承了BaseMapper，本身没有特殊逻辑，只是动态代理Mapper接口，他也是ServiceImpl的成员变量。所以既可以调用BaseMapper提供的写好的CRUD方法也可以使用UserMapper自定义的方法。
 
 
-# 全局统一返回实体 Result和Results  后面 implements Serializable  标记这个类的对象可以被序列化和反序列化 序列化 对象-二进制字节流存入外部系统(redis)  反序列化反之
+## 全局统一返回实体 Result和Results  后面 implements Serializable  标记这个类的对象可以被序列化和反序列化 序列化 对象-二进制字节流存入外部系统(redis)  反序列化反之
 class Result{
   private static final long serialVersionUID = 5679018624309023727L;    维护一个版本号，提示如果微服务下另一个存储了相同类的服务(应用程序)要从Redis或外部系统中取数据，要进行反序列化的时候，如果 有这个版本号，写死的就会兼容，即如果有小的改动 比如加一个字段，照样能反序列化成功。
 }
