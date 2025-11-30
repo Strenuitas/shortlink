@@ -34,7 +34,7 @@ Apifox：
 通过URL：localhost  主机ip + 端口号 8080 ：  正在监听8080端口的应用程序，  /user/create  找到Spring MVC中映射到这个路径的方法 
 localhost:8080//user/create
 
-## Spring MVC里面的注解 @RequestMpaping  映射Web请求到控制器方法
+## Spring MVC里面的注解 @RequestMapping  映射Web请求到控制器方法
 
 
 # 用户名下功能
