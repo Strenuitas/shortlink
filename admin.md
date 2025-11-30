@@ -25,7 +25,7 @@ ShortLinkAdminApplication:应用程序启动工具类  💩
 Apifox：  
   API文档   API调试    
   
-# @RestController = @RequestMapping + @ResponseBody
+# @RestController = @Controller + @ResponseBody
 
 ## 注解：给代码贴上标签，使得编译器或者框架根据代码上的标签标识来执行代码    语言层面上：是一个元数据  
 
