@@ -68,13 +68,13 @@ baseMapper是Service 父类ServiceImpl提供的Mapper代理对象，所以他本
 class Result{
   private static final long serialVersionUID = 5679018624309023727L;    维护一个版本号，提示如果微服务下另一个存储了相同类的服务(应用程序)要从Redis或外部系统中取数据，要进行反序列化的时候，如果 有这个版本号，写死的就会兼容，即如果有小的改动 比如加一个字段，照样能反序列化成功。
 }
-# 这里还有一个Results类，设计的目的是为了使全局返回实体Result使用set链式创建对象，从而能够创建带不同参数的Result返回给用户。
+## 这里还有一个Results类，设计的目的是为了使全局返回实体Result使用set链式创建对象，从而能够创建带不同参数的Result返回给用户。
 
-# Controller  如果是请求的URL上面加上要传的参数   响应的方法的参数 前要加注解 @PathVariable  且在方法上面的GetMapping("url/{username}")加上占位符 ；      如果不想更改url 只是传递参数，改为@RequestParam   就可以在请求附带的参数下面的Query后面设置 username = wangba了
+## Controller  如果是请求的URL上面加上要传的参数   响应的方法的参数 前要加注解 @PathVariable  且在方法上面的GetMapping("url/{username}")加上占位符 ；      如果不想更改url 只是传递参数，改为@RequestParam   就可以在请求附带的参数下面的Query后面设置 username = wangba了
 
 # 全局统一异常码设计    
-# 全局异常设计    只有服务端和远程调用的时候的异常我们才需要报警，需要后端人员尽快处理，如果是客户端异常则不需要，那是因为客户的问题，并不是我们的应用的问题  所以将 客户端异常，服务端异常，远程调用异常抽象出来一个抽象异常接口
-# 全局异常拦截器  @RestControllerAdvice    标记的类GlobalExceptionHandler被Spring注册为全局异常拦截器bean，然后如果有异常，则是去找对应的@ExceptionHandler方法里匹配对应的异常类。分别有Service异常 客户端参数异常 以及其他未知异常。     有异常 先是 提示对应的异常，然后到Results.failure里面去构造返回的实体带上异常信息
+## 全局异常设计    只有服务端和远程调用的时候的异常我们才需要报警，需要后端人员尽快处理，如果是客户端异常则不需要，那是因为客户的问题，并不是我们的应用的问题  所以将 客户端异常，服务端异常，远程调用异常抽象出来一个抽象异常接口
+## 全局异常拦截器  @RestControllerAdvice    标记的类GlobalExceptionHandler被Spring注册为全局异常拦截器bean，然后如果有异常，则是去找对应的@ExceptionHandler方法里匹配对应的异常类。分别有Service异常 客户端参数异常 以及其他未知异常。     有异常 先是 提示对应的异常，然后到Results.failure里面去构造返回的实体带上异常信息
 
 ##  脱敏处理 普通想法即在请求对应方法上面加一层注解然后经过AOP扫描到这个注解，然后经过反射递归的一层层直到去获取到RespDTO，获取到返回实体的某个加了一层注解(标记是比如手机号类型)的字段，然后对这个字段进行脱敏展示，这样太麻烦
     不如直接使用Jackson默认序列化的方式，就是我们方法返回的是对象，到前端却是Jason字符串，是因为SpringBoot在我们的web请求，默认的会把返回的对象进行序列化的方式，把它序列化成字符串
@@ -82,10 +82,10 @@ class Result{
     字段进行泛解析，去实现我们的自定义的一个序列化。
 
 
-# Wrappers是Mybatis-plus提供的查询条件封装器，用于构造查询条件，先使用Wrappers.lambdaQuery().eq(UserDO::username,username)后面是请求传入的，前者则是UserDO的username，构建一个查询条件queryWrapper，查询UserDO中字段username=传入的username值的记录，然后再使用
+## Wrappers是Mybatis-plus提供的查询条件封装器，用于构造查询条件，先使用Wrappers.lambdaQuery().eq(UserDO::username,username)后面是请求传入的，前者则是UserDO的username，构建一个查询条件queryWrapper，查询UserDO中字段username=传入的username值的记录，然后再使用
   baseMapper,这个也是Mybatis-plus提供的基础Mapper接口，用与给出基础的CRUD的操作，baseMapper.selectOne(queryWrapper)执行查询.等于说前者写好sql语句，后者则是带着sql语句去数据库里面去查
 
-# 枚举类型 是写好的枚举类的对象，只不过写法例如     USER_NULL("B000200", "用户记录不存在"),
+## 枚举类型 是写好的枚举类的对象，只不过写法例如     USER_NULL("B000200", "用户记录不存在"),
 
 # 查询用户名是否存在
 实现的交互是 用户填入用户名就提示不可用，而不是填完所有数据后点注册才提示用户不可用 就不好。
